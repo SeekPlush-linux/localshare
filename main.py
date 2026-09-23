@@ -5,6 +5,10 @@ import socket
 import time
 
 
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+    s.connect(("8.8.8.8", 80))
+    local_ip = s.getsockname()[0]
+
 active_devices = []
 
 
@@ -23,8 +27,7 @@ async def listener(stop_event):
                 await asyncio.sleep(0.1)
                 continue
 
-            print(receiver_socket.getsockname())
-            if addr[0] in (receiver_socket.getsockname()[0], [x['ip'] for x in active_devices]):
+            if addr[0] in (local_ip, [x['ip'] for x in active_devices]):
                 continue
 
             print(f"Received message from {addr}: {data.decode()}")
