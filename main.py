@@ -3,6 +3,9 @@ import json
 import signal
 import socket
 import time
+from pathlib import Path
+
+from aiohttp import web
 
 
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -10,6 +13,53 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
     local_ip = s.getsockname()[0]
 
 active_devices = {}
+DOWNLOAD_DIR = Path.home() / 'Downloads' / 'LocalShare'
+
+
+async def upload(request):
+    DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    reader = await request.multipart()
+    uploaded_files = []
+
+    while True:
+        part = await reader.next()
+        if part is None:
+            break
+        if not part.filename:
+            continue
+
+        filename = Path(part.filename).name
+        if not filename or filename in ('.', '..'):
+            continue
+
+        destination = DOWNLOAD_DIR / filename
+        with destination.open('wb') as output_file:
+            while True:
+                chunk = await part.read_chunk()
+                if not chunk:
+                    break
+                output_file.write(chunk)
+        uploaded_files.append(filename)
+
+    if not uploaded_files:
+        return web.json_response({'error': 'No files were uploaded'}, status=400)
+    return web.json_response({'files': uploaded_files})
+
+
+async def http_server(stop_event):
+    app = web.Application()
+    app.router.add_post('/upload', upload)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    await site.start()
+
+    try:
+        await stop_event.wait()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        await runner.cleanup()
 
 
 async def listener(stop_event):
@@ -90,6 +140,9 @@ async def main():
     print("Starting sender")
     sender_task = asyncio.create_task(broadcast_presence(stop_event))
 
+    print("Starting HTTP server")
+    server_task = asyncio.create_task(http_server(stop_event))
+
     try:
         while not stop_event.is_set():
             now = time.time()
@@ -104,7 +157,13 @@ async def main():
     finally:
         listener_task.cancel()
         sender_task.cancel()
-        await asyncio.gather(listener_task, sender_task, return_exceptions=True)
+        server_task.cancel()
+        await asyncio.gather(
+            listener_task,
+            sender_task,
+            server_task,
+            return_exceptions=True,
+        )
 
 
 if __name__ == "__main__":
