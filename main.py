@@ -12,6 +12,15 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
     s.connect(("8.8.8.8", 80))
     local_ip = s.getsockname()[0]
 
+with socket.socket() as s:
+    for i in range(8080, 40000):
+        try:
+            s.bind(("127.0.0.1", i))
+            http_port = i
+            break
+        except socket.error:
+            continue
+
 active_devices = {}
 DOWNLOAD_DIR = Path.home() / 'Downloads' / 'LocalShare'
 
@@ -51,13 +60,15 @@ async def http_server(stop_event):
     app.router.add_post('/upload', upload)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', http_port)
     await site.start()
+
+    print(f"Running HTTP server at port {http_port}")
 
     try:
         await stop_event.wait()
     except asyncio.CancelledError:
-        pass
+        print("Stopping HTTP server...")
     finally:
         await runner.cleanup()
 
@@ -101,7 +112,7 @@ async def broadcast_presence(stop_event):
 
     msg = json.dumps({
         "name": socket.gethostname(),
-        "port": 8080
+        "port": http_port
     }).encode()
 
     try:
