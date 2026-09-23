@@ -9,7 +9,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
     s.connect(("8.8.8.8", 80))
     local_ip = s.getsockname()[0]
 
-active_devices = []
+active_devices = {}
 
 
 async def listener(stop_event):
@@ -27,16 +27,16 @@ async def listener(stop_event):
                 await asyncio.sleep(0.1)
                 continue
 
-            if addr[0] in (local_ip, [x['ip'] for x in active_devices]):
+            if addr[0] in (local_ip, [x['ip'] for x in active_devices.values()]):
                 continue
 
             print(f"Received message from {addr}: {data.decode()}")
             data_dict = json.loads(data.decode())
-            active_devices.append({
-                'name': data_dict['name'],
+
+            active_devices[data_dict['name']] = {
                 'ip': addr[0],
                 'last_ping': time.time()
-            })
+            }
     except asyncio.CancelledError:
         print("Stopping receiver...")
     finally:
@@ -92,9 +92,14 @@ async def main():
 
     try:
         while not stop_event.is_set():
-            active_devices = [x for x in active_devices if time.time() - x['last_ping'] < 10]
+            now = time.time()
+            active_devices = {
+                name: device
+                for name, device in active_devices.items()
+                if now - device['last_ping'] < 10
+            }
 
-            print(f"Active Devices: {[x['name'] for x in active_devices]}")
+            print(f"Active Devices: {list(active_devices.keys())}")
             await asyncio.sleep(1)
     finally:
         listener_task.cancel()
