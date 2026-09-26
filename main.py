@@ -9,18 +9,22 @@ from pathlib import Path
 import aiohttp
 import psutil
 from aiohttp import web
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QSettings, Qt, QThread, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QProgressBar,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -137,11 +141,12 @@ class NetworkWorker(QThread):
     server_ready = pyqtSignal(int)
     status_changed = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, download_dir):
         super().__init__()
         self._stop_requested = threading.Event()
         self._loop = None
         self._devices = {}
+        self.download_dir = download_dir
         self.local_ip = get_local_ip()
         self.local_ips = get_all_local_ips()
 
@@ -202,7 +207,6 @@ class NetworkWorker(QThread):
             await runner.cleanup()
 
     async def _handle_upload(self, request):
-        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
         reader = await request.multipart()
         uploaded = []
         peer = next(
@@ -223,6 +227,7 @@ class NetworkWorker(QThread):
                 continue
             transfer_id = str(uuid.uuid4())
             total = int(part.headers.get("Content-Length", "0") or 0)
+            self.download_dir.mkdir(parents=True, exist_ok=True)
             destination = self._unique_destination(filename)
             self.incoming_started.emit(transfer_id, destination.name, peer)
             received = 0
@@ -246,15 +251,14 @@ class NetworkWorker(QThread):
             return web.json_response({"error": "No files were uploaded"}, status=400)
         return web.json_response({"files": uploaded})
 
-    @staticmethod
-    def _unique_destination(filename):
-        destination = DOWNLOAD_DIR / filename
+    def _unique_destination(self, filename):
+        destination = self.download_dir / filename
         if not destination.exists():
             return destination
         stem, suffix = destination.stem, destination.suffix
         index = 1
         while True:
-            candidate = DOWNLOAD_DIR / f"{stem} ({index}){suffix}"
+            candidate = self.download_dir / f"{stem} ({index}){suffix}"
             if not candidate.exists():
                 return candidate
             index += 1
@@ -354,7 +358,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("LocalShare")
         self.resize(1020, 700)
         self._rows = {}
-        self.worker = NetworkWorker()
+        self.settings = QSettings("SeekPlush-linux", "LocalShare")
+        self.download_dir = Path(
+            self.settings.value("download_dir", str(DOWNLOAD_DIR))
+        ).expanduser()
+        self.theme = self.settings.value("theme", "Light")
+        if self.theme not in ("Light", "Dark"):
+            self.theme = "Light"
+        self.worker = NetworkWorker(self.download_dir)
 
         root = QWidget()
         root.setObjectName("root")
@@ -372,6 +383,15 @@ class MainWindow(QMainWindow):
         brand = QLabel("LocalShare")
         brand.setObjectName("brand")
         side_layout.addWidget(brand)
+        self.home_button = QPushButton("Send files")
+        self.home_button.setObjectName("navButton")
+        self.settings_button = QPushButton("Settings")
+        self.settings_button.setObjectName("navButton")
+        self.about_button = QPushButton("About")
+        self.about_button.setObjectName("navButton")
+        side_layout.addWidget(self.home_button)
+        side_layout.addWidget(self.settings_button)
+        side_layout.addWidget(self.about_button)
         side_layout.addWidget(QLabel("NEARBY DEVICES", objectName="sectionLabel"))
         self.device_list = QListWidget()
         self.device_list.setObjectName("deviceList")
@@ -382,6 +402,9 @@ class MainWindow(QMainWindow):
         self.network_status.setWordWrap(True)
         side_layout.addWidget(self.network_status)
         outer.addWidget(sidebar)
+
+        self.pages = QStackedWidget()
+        outer.addWidget(self.pages, 1)
 
         content = QWidget()
         content_layout = QVBoxLayout(content)
@@ -414,7 +437,73 @@ class MainWindow(QMainWindow):
         self.queue_list = QListWidget()
         self.queue_list.setObjectName("queueList")
         content_layout.addWidget(self.queue_list, 1)
-        outer.addWidget(content, 1)
+        self.pages.addWidget(content)
+
+        settings_page = QWidget()
+        settings_layout = QVBoxLayout(settings_page)
+        settings_layout.setContentsMargins(32, 28, 32, 24)
+        settings_layout.setSpacing(18)
+        settings_title = QLabel("Settings")
+        settings_title.setObjectName("pageTitle")
+        settings_layout.addWidget(settings_title)
+        settings_layout.addWidget(QLabel("Appearance", objectName="sectionTitle"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Light", "Dark"])
+        self.theme_combo.setCurrentText(self.theme)
+        self.theme_combo.currentTextChanged.connect(self.set_theme)
+        settings_layout.addWidget(QLabel("Color mode"))
+        settings_layout.addWidget(self.theme_combo)
+        settings_layout.addSpacing(12)
+        settings_layout.addWidget(QLabel("Downloads", objectName="sectionTitle"))
+        settings_layout.addWidget(QLabel("Folder for files received from nearby devices"))
+        folder_row = QHBoxLayout()
+        self.download_path = QLineEdit(str(self.download_dir))
+        self.download_path.setObjectName("downloadPath")
+        self.download_path.setClearButtonEnabled(True)
+        browse_button = QPushButton("Browse…")
+        browse_button.clicked.connect(self.browse_download_dir)
+        folder_row.addWidget(self.download_path, 1)
+        folder_row.addWidget(browse_button)
+        settings_layout.addLayout(folder_row)
+        save_button = QPushButton("Save folder")
+        save_button.setObjectName("primaryButton")
+        save_button.clicked.connect(self.save_download_dir)
+        settings_layout.addWidget(save_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.settings_status = QLabel("")
+        self.settings_status.setObjectName("muted")
+        settings_layout.addWidget(self.settings_status)
+        settings_layout.addStretch(1)
+        self.pages.addWidget(settings_page)
+
+        about_page = QWidget()
+        about_layout = QVBoxLayout(about_page)
+        about_layout.setContentsMargins(32, 28, 32, 24)
+        about_layout.setSpacing(16)
+        about_title = QLabel("About LocalShare")
+        about_title.setObjectName("pageTitle")
+        about_layout.addWidget(about_title)
+        about_layout.addWidget(QLabel("LocalShare", objectName="sectionTitle"))
+        about_description = QLabel(
+            "A simple peer-to-peer file sharing app for devices on your local network. "
+            "Discover nearby devices and send files without a cloud account."
+        )
+        about_description.setObjectName("muted")
+        about_description.setWordWrap(True)
+        about_layout.addWidget(about_description)
+        repository_button = QPushButton("View project on GitHub")
+        repository_button.setObjectName("primaryButton")
+        repository_button.clicked.connect(
+            lambda: QDesktopServices.openUrl(
+                QUrl("https://github.com/SeekPlush-linux/localshare")
+            )
+        )
+        about_layout.addWidget(repository_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        about_layout.addStretch(1)
+        self.pages.addWidget(about_page)
+
+        self.home_button.clicked.connect(lambda: self.pages.setCurrentIndex(0))
+        self.settings_button.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        self.about_button.clicked.connect(lambda: self.pages.setCurrentIndex(2))
 
         self.worker.devices_changed.connect(self.update_devices)
         self.worker.incoming_started.connect(self.add_incoming_transfer)
@@ -422,7 +511,34 @@ class MainWindow(QMainWindow):
         self.worker.transfer_finished.connect(self.finish_transfer)
         self.worker.status_changed.connect(self.network_status.setText)
         self.worker.start()
-        self.setStyleSheet(STYLESHEET)
+        self.apply_theme()
+
+    def set_theme(self, theme):
+        self.theme = theme
+        self.settings.setValue("theme", theme)
+        self.apply_theme()
+
+    def apply_theme(self):
+        self.setStyleSheet(DARK_STYLESHEET if self.theme == "Dark" else LIGHT_STYLESHEET)
+
+    def browse_download_dir(self):
+        directory = QFileDialog.getExistingDirectory(
+            self, "Choose download folder", self.download_path.text()
+        )
+        if directory:
+            self.download_path.setText(directory)
+            self.save_download_dir()
+
+    def save_download_dir(self):
+        value = self.download_path.text().strip()
+        if not value:
+            self.settings_status.setText("Choose a folder path first.")
+            return
+        self.download_dir = Path(value).expanduser()
+        self.worker.download_dir = self.download_dir
+        self.settings.setValue("download_dir", str(self.download_dir))
+        self.download_path.setText(str(self.download_dir))
+        self.settings_status.setText("Download folder saved.")
 
     def choose_files(self):
         filenames, _ = QFileDialog.getOpenFileNames(self, "Choose files")
@@ -491,20 +607,25 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
 
-STYLESHEET = """
+LIGHT_STYLESHEET = """
 QWidget#root { background: #f4f6f5; color: #172321; font-family: 'Noto Sans', 'DejaVu Sans', sans-serif; }
 QFrame#sidebar { background: #182925; color: #f1f6f2; }
 QLabel#brand { color: #f5fbf7; font-size: 23px; font-weight: 700; padding-bottom: 20px; }
 QLabel#sectionLabel { color: #9cafa6; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
 QLabel#muted { color: #75847e; font-size: 12px; }
 QFrame#sidebar QLabel#muted { color: #9cafa6; }
+QPushButton#navButton { background: transparent; color: #dbe7e0; border: none; border-radius: 4px; padding: 9px 8px; text-align: left; }
+QPushButton#navButton:hover { background: #2d423b; color: #b9f2cc; }
 QListWidget#deviceList { background: transparent; border: none; color: #e4eee8; outline: none; }
 QListWidget#deviceList::item { padding: 12px 8px; border-radius: 5px; }
 QListWidget#deviceList::item:selected { background: #2d423b; color: #b9f2cc; }
 QLabel#pageTitle { font-size: 27px; font-weight: 700; }
 QLabel#sectionTitle { font-size: 16px; font-weight: 700; }
+QPushButton { background: #e5ebe7; color: #21352d; border: 1px solid #cbd6cf; border-radius: 5px; padding: 9px 14px; }
+QPushButton:hover { background: #d9e3dc; }
 QPushButton#primaryButton { background: #167d58; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #106746; }
+QLineEdit#downloadPath, QComboBox { background: white; color: #172321; border: 1px solid #cbd6cf; border-radius: 4px; padding: 8px; }
 QFrame#dropZone { background: #e9efeb; border: 2px dashed #a8bbb0; border-radius: 7px; }
 QLabel#dropTitle { color: #214237; font-size: 18px; font-weight: 700; }
 QListWidget#queueList { background: transparent; border: none; outline: none; }
@@ -513,6 +634,35 @@ QLabel#transferName { font-size: 13px; font-weight: 700; }
 QLabel#transferTarget { color: #75847e; font-size: 11px; }
 QProgressBar { background: #e8eeea; border: none; border-radius: 3px; height: 6px; text-align: center; }
 QProgressBar::chunk { background: #31a373; border-radius: 3px; }
+"""
+
+DARK_STYLESHEET = """
+QWidget#root { background: #202a27; color: #e7eeea; font-family: 'Noto Sans', 'DejaVu Sans', sans-serif; }
+QFrame#sidebar { background: #121c19; color: #f1f6f2; }
+QLabel#brand { color: #f5fbf7; font-size: 23px; font-weight: 700; padding-bottom: 20px; }
+QLabel#sectionLabel { color: #9cafa6; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+QLabel#muted { color: #a4b2ac; font-size: 12px; }
+QFrame#sidebar QLabel#muted { color: #9cafa6; }
+QPushButton#navButton { background: transparent; color: #dbe7e0; border: none; border-radius: 4px; padding: 9px 8px; text-align: left; }
+QPushButton#navButton:hover { background: #2d423b; color: #b9f2cc; }
+QListWidget#deviceList { background: transparent; border: none; color: #e4eee8; outline: none; }
+QListWidget#deviceList::item { padding: 12px 8px; border-radius: 5px; }
+QListWidget#deviceList::item:selected { background: #2d423b; color: #b9f2cc; }
+QLabel#pageTitle { font-size: 27px; font-weight: 700; }
+QLabel#sectionTitle { font-size: 16px; font-weight: 700; }
+QPushButton { background: #34433d; color: #e7eeea; border: 1px solid #50625a; border-radius: 5px; padding: 9px 14px; }
+QPushButton:hover { background: #40534a; }
+QPushButton#primaryButton { background: #208960; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
+QPushButton#primaryButton:hover { background: #2b9b70; }
+QLineEdit#downloadPath, QComboBox { background: #293631; color: #e7eeea; border: 1px solid #50625a; border-radius: 4px; padding: 8px; }
+QFrame#dropZone { background: #293631; border: 2px dashed #60766a; border-radius: 7px; }
+QLabel#dropTitle { color: #b9f2cc; font-size: 18px; font-weight: 700; }
+QListWidget#queueList { background: transparent; border: none; outline: none; }
+QListWidget#queueList::item { background: #293631; border: 1px solid #40534a; border-radius: 5px; margin-bottom: 8px; }
+QLabel#transferName { font-size: 13px; font-weight: 700; }
+QLabel#transferTarget { color: #a4b2ac; font-size: 11px; }
+QProgressBar { background: #34433d; border: none; border-radius: 3px; height: 6px; text-align: center; }
+QProgressBar::chunk { background: #42bd89; border-radius: 3px; }
 """
 
 
