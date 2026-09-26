@@ -55,6 +55,15 @@ def get_broadcast_addresses():
     return sorted(addresses) or ["255.255.255.255"]
 
 
+def get_all_local_ips():
+    try:
+        hostname = socket.gethostname()
+        _, _, ip_addresses = socket.gethostbyname_ex(hostname)
+        return ip_addresses
+    except Exception:
+        return [get_local_ip()]
+
+
 class TransferRow(QWidget):
     def __init__(self, filename, target, state="Pending"):
         super().__init__()
@@ -134,6 +143,7 @@ class NetworkWorker(QThread):
         self._loop = None
         self._devices = {}
         self.local_ip = get_local_ip()
+        self.local_ips = get_all_local_ips()
 
     def stop(self):
         self._stop_requested.set()
@@ -267,7 +277,7 @@ class NetworkWorker(QThread):
                 if data:
                     try:
                         details = json.loads(data.decode("utf-8"))
-                        if address[0] != self.local_ip and details.get("name"):
+                        if address[0] not in self.local_ips and details.get("name"):
                             self._devices[details["name"]] = {
                                 "name": details["name"],
                                 "ip": address[0],
