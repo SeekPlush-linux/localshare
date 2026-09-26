@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 import aiohttp
+import psutil
 from aiohttp import web
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -36,6 +37,22 @@ def get_local_ip():
             return probe.getsockname()[0]
     except OSError:
         return "127.0.0.1"
+
+
+def get_broadcast_addresses():
+    addresses = set()
+    interface_stats = psutil.net_if_stats()
+    for interface, interface_addresses in psutil.net_if_addrs().items():
+        if interface in interface_stats and not interface_stats[interface].isup:
+            continue
+        for address in interface_addresses:
+            if (
+                address.family == socket.AF_INET
+                and address.broadcast
+                and not address.address.startswith("127.")
+            ):
+                addresses.add(address.broadcast)
+    return sorted(addresses) or ["255.255.255.255"]
 
 
 class TransferRow(QWidget):
@@ -277,10 +294,15 @@ class NetworkWorker(QThread):
         sender.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sender.setblocking(False)
         message = json.dumps({"name": socket.gethostname(), "port": port}).encode()
+        destinations = get_broadcast_addresses()
         loop = asyncio.get_running_loop()
         try:
             while not self._stop_requested.is_set():
-                await loop.sock_sendto(sender, message, ("<broadcast>", 50000))
+                for destination in destinations:
+                    try:
+                        await loop.sock_sendto(sender, message, (destination, 50000))
+                    except OSError:
+                        pass
                 await asyncio.sleep(2)
         finally:
             sender.close()
