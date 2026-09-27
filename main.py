@@ -612,6 +612,7 @@ QWidget#root { background: #f4f6f5; color: #172321; font-family: 'Noto Sans', 'D
 QFrame#sidebar { background: #182925; color: #f1f6f2; }
 QLabel#brand { color: #f5fbf7; font-size: 23px; font-weight: 700; padding-bottom: 20px; }
 QLabel#sectionLabel { color: #9cafa6; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+QLabel { color: #000000; }
 QLabel#muted { color: #75847e; font-size: 12px; }
 QFrame#sidebar QLabel#muted { color: #9cafa6; }
 QPushButton#navButton { background: transparent; color: #dbe7e0; border: none; border-radius: 4px; padding: 9px 8px; text-align: left; }
@@ -619,8 +620,8 @@ QPushButton#navButton:hover { background: #2d423b; color: #b9f2cc; }
 QListWidget#deviceList { background: transparent; border: none; color: #e4eee8; outline: none; }
 QListWidget#deviceList::item { padding: 12px 8px; border-radius: 5px; }
 QListWidget#deviceList::item:selected { background: #2d423b; color: #b9f2cc; }
-QLabel#pageTitle { font-size: 27px; font-weight: 700; }
-QLabel#sectionTitle { font-size: 16px; font-weight: 700; }
+QLabel#pageTitle { color: #000000; font-size: 27px; font-weight: 700; }
+QLabel#sectionTitle { color: #000000; font-size: 16px; font-weight: 700; }
 QPushButton { background: #e5ebe7; color: #21352d; border: 1px solid #cbd6cf; border-radius: 5px; padding: 9px 14px; }
 QPushButton:hover { background: #d9e3dc; }
 QPushButton#primaryButton { background: #167d58; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
@@ -641,6 +642,7 @@ QWidget#root { background: #202a27; color: #e7eeea; font-family: 'Noto Sans', 'D
 QFrame#sidebar { background: #121c19; color: #f1f6f2; }
 QLabel#brand { color: #f5fbf7; font-size: 23px; font-weight: 700; padding-bottom: 20px; }
 QLabel#sectionLabel { color: #9cafa6; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+QLabel { color: #f5fbf7; }
 QLabel#muted { color: #a4b2ac; font-size: 12px; }
 QFrame#sidebar QLabel#muted { color: #9cafa6; }
 QPushButton#navButton { background: transparent; color: #dbe7e0; border: none; border-radius: 4px; padding: 9px 8px; text-align: left; }
@@ -648,8 +650,8 @@ QPushButton#navButton:hover { background: #2d423b; color: #b9f2cc; }
 QListWidget#deviceList { background: transparent; border: none; color: #e4eee8; outline: none; }
 QListWidget#deviceList::item { padding: 12px 8px; border-radius: 5px; }
 QListWidget#deviceList::item:selected { background: #2d423b; color: #b9f2cc; }
-QLabel#pageTitle { font-size: 27px; font-weight: 700; }
-QLabel#sectionTitle { font-size: 16px; font-weight: 700; }
+QLabel#pageTitle { color: #f5fbf7; font-size: 27px; font-weight: 700; }
+QLabel#sectionTitle { color: #f5fbf7; font-size: 16px; font-weight: 700; }
 QPushButton { background: #34433d; color: #e7eeea; border: 1px solid #50625a; border-radius: 5px; padding: 9px 14px; }
 QPushButton:hover { background: #40534a; }
 QPushButton#primaryButton { background: #208960; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
