@@ -627,6 +627,7 @@ QPushButton:hover { background: #d9e3dc; }
 QPushButton#primaryButton { background: #167d58; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #106746; }
 QLineEdit#downloadPath, QComboBox { background: white; color: #172321; border: 1px solid #cbd6cf; border-radius: 4px; padding: 8px; }
+QComboBox QAbstractItemView { color: #172321 }
 QFrame#dropZone { background: #e9efeb; border: 2px dashed #a8bbb0; border-radius: 7px; }
 QLabel#dropTitle { color: #214237; font-size: 18px; font-weight: 700; }
 QListWidget#queueList { background: transparent; border: none; outline: none; }
@@ -657,6 +658,7 @@ QPushButton:hover { background: #40534a; }
 QPushButton#primaryButton { background: #208960; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #2b9b70; }
 QLineEdit#downloadPath, QComboBox { background: #293631; color: #e7eeea; border: 1px solid #50625a; border-radius: 4px; padding: 8px; }
+QComboBox QAbstractItemView { color: #e7eeea }
 QFrame#dropZone { background: #293631; border: 2px dashed #60766a; border-radius: 7px; }
 QLabel#dropTitle { color: #b9f2cc; font-size: 18px; font-weight: 700; }
 QListWidget#queueList { background: transparent; border: none; outline: none; }
