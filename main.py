@@ -624,10 +624,11 @@ QLabel#pageTitle { color: #000000; font-size: 27px; font-weight: 700; }
 QLabel#sectionTitle { color: #000000; font-size: 16px; font-weight: 700; }
 QPushButton { background: #e5ebe7; color: #21352d; border: 1px solid #cbd6cf; border-radius: 5px; padding: 9px 14px; }
 QPushButton:hover { background: #d9e3dc; }
+QPushButton:focus { border: none; }
 QPushButton#primaryButton { background: #167d58; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #106746; }
 QLineEdit#downloadPath, QComboBox { background: white; color: #172321; border: 1px solid #cbd6cf; border-radius: 4px; padding: 8px; }
-QComboBox QAbstractItemView { color: #172321 }
+QComboBox QAbstractItemView { background: white; color: #172321; border: 1px solid #cbd6cf; }
 QFrame#dropZone { background: #e9efeb; border: 2px dashed #a8bbb0; border-radius: 7px; }
 QLabel#dropTitle { color: #214237; font-size: 18px; font-weight: 700; }
 QListWidget#queueList { background: transparent; border: none; outline: none; }
@@ -655,10 +656,11 @@ QLabel#pageTitle { color: #f5fbf7; font-size: 27px; font-weight: 700; }
 QLabel#sectionTitle { color: #f5fbf7; font-size: 16px; font-weight: 700; }
 QPushButton { background: #34433d; color: #e7eeea; border: 1px solid #50625a; border-radius: 5px; padding: 9px 14px; }
 QPushButton:hover { background: #40534a; }
+QPushButton:focus { border: none; }
 QPushButton#primaryButton { background: #208960; color: white; border: none; border-radius: 5px; padding: 10px 16px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #2b9b70; }
 QLineEdit#downloadPath, QComboBox { background: #293631; color: #e7eeea; border: 1px solid #50625a; border-radius: 4px; padding: 8px; }
-QComboBox QAbstractItemView { color: #e7eeea }
+QComboBox QAbstractItemView { background: #293631; color: #e7eeea; border: 1px solid #50625a; }
 QFrame#dropZone { background: #293631; border: 2px dashed #60766a; border-radius: 7px; }
 QLabel#dropTitle { color: #b9f2cc; font-size: 18px; font-weight: 700; }
 QListWidget#queueList { background: transparent; border: none; outline: none; }
