@@ -29,7 +29,6 @@ Each device announces itself on the LAN, and the app shows the discovered peers 
 ## Requirements
 
 - Python 3.10 or newer
-- Linux
 - A local network (same Wi‑Fi, Ethernet segment, or LAN)
 
 ## Installation
